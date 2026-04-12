@@ -1,0 +1,3 @@
+D:/gitweb/ChinaVoiceAIOnDevice/app/.cxx/Debug/642y5c5f/x86/CMakeFiles/stt.dir
+D:/gitweb/ChinaVoiceAIOnDevice/app/.cxx/Debug/642y5c5f/x86/CMakeFiles/edit_cache.dir
+D:/gitweb/ChinaVoiceAIOnDevice/app/.cxx/Debug/642y5c5f/x86/CMakeFiles/rebuild_cache.dir

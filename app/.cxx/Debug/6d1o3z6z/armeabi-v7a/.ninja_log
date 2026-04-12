@@ -1,0 +1,20 @@
+# ninja log v5
+9	1091	7966623672976217	CMakeFiles/stt.dir/stt.cpp.o	469691a0d8c81259
+1092	1430	7966623676371021	D:/gitweb/ChinaVoiceAIOnDevice/app/build/intermediates/cxx/Debug/6d1o3z6z/obj/armeabi-v7a/libstt.so	d3717e218942164b
+6	279	7973505538723349	build.ninja	930fb008607b123
+0	18	0	clean	d0ed652a55d7c727
+18	1917	7973505560009839	CMakeFiles/stt.dir/stt.cpp.o	469691a0d8c81259
+1919	2336	7973505564213074	D:/gitweb/ChinaVoiceAIOnDevice/app/build/intermediates/cxx/Debug/6d1o3z6z/obj/armeabi-v7a/libstt.so	94c27827a522df08
+1	23	0	clean	d0ed652a55d7c727
+0	20	0	clean	d0ed652a55d7c727
+1	27	0	clean	d0ed652a55d7c727
+0	16	0	clean	d0ed652a55d7c727
+10	1305	7974360398917372	CMakeFiles/stt.dir/stt.cpp.o	469691a0d8c81259
+1306	1689	7974360402774679	D:/gitweb/ChinaVoiceAIOnDevice/app/build/intermediates/cxx/Debug/6d1o3z6z/obj/armeabi-v7a/libstt.so	94c27827a522df08
+1	20	0	clean	d0ed652a55d7c727
+0	25	0	clean	d0ed652a55d7c727
+27	7733	7974395613585931	CMakeFiles/stt.dir/stt.cpp.o	469691a0d8c81259
+7734	8974	7974395626139409	D:/gitweb/ChinaVoiceAIOnDevice/app/build/intermediates/cxx/Debug/6d1o3z6z/obj/armeabi-v7a/libstt.so	94c27827a522df08
+0	20	0	clean	d0ed652a55d7c727
+18	5412	7974402241436036	CMakeFiles/stt.dir/stt.cpp.o	469691a0d8c81259
+5417	8285	7974402271251627	D:/gitweb/ChinaVoiceAIOnDevice/app/build/intermediates/cxx/Debug/6d1o3z6z/obj/armeabi-v7a/libstt.so	94c27827a522df08

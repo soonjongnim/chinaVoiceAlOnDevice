@@ -1,0 +1,7 @@
+[
+{
+  "directory": "D:/gitweb/ChinaVoiceAIOnDevice/app/.cxx/Debug/6d1o3z6z/x86_64",
+  "command": "C:\\Users\\user\\AppData\\Local\\Android\\Sdk\\ndk\\27.0.12077973\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=x86_64-none-linux-android24 --sysroot=C:/Users/user/AppData/Local/Android/Sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/windows-x86_64/sysroot -Dstt_EXPORTS -ID:/gitweb/ChinaVoiceAIOnDevice/app/src/main/cpp -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -fno-limit-debug-info  -fPIC -o CMakeFiles\\stt.dir\\stt.cpp.o -c D:\\gitweb\\ChinaVoiceAIOnDevice\\app\\src\\main\\cpp\\stt.cpp",
+  "file": "D:\\gitweb\\ChinaVoiceAIOnDevice\\app\\src\\main\\cpp\\stt.cpp"
+}
+]

@@ -1,0 +1,12 @@
+.gradle
+build
+*.onnx
+*.aar
+*.tar.bz2
+.venv
+.vscode
+local.properties
+temp_apk
+test_wavs
+*.pyc
+__pycache__/
