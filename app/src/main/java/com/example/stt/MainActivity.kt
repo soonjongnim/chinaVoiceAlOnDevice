@@ -1,6 +1,9 @@
 package com.example.stt
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.AssetManager
@@ -35,7 +38,8 @@ class MainActivity : AppCompatActivity() {
     // TTS (Text-to-Speech) 관련
     private var tts: TextToSpeech? = null
     private var isTtsReady = false
-    private var lastTranslatedText: String? = null  // 괄호(한글 발음) 제거 전 원문 중국어
+    private var lastTranslatedText: String? = null  // 괄호(한글 발음) 제거 전 원문 중국어 (TTS 용도)
+    private var currentTranslatedTextToCopy: String? = null // 순수 번역 결과 (복사 용도)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -106,6 +110,7 @@ class MainActivity : AppCompatActivity() {
             text = "버튼을 눌러 음성 인식을 테스트하거나 텍스트를 직접 입력하세요."
             textSize = 18f
             setPadding(0, 0, 0, 32)
+            setTextIsSelectable(true) // 드래그해서 부분 텍스트 선택/복사 허용 (기본 UI 사용)
         }
         
         val inputEditText = android.widget.EditText(this).apply {
@@ -116,24 +121,13 @@ class MainActivity : AppCompatActivity() {
         val translateTextButton = Button(this).apply {
             text = "텍스트를 중국어로 번역"
         }
-
-        // 🔊 음성 재생 버튼
-        val speakButton = Button(this).apply {
-            text = "🔊 번역 음성 재생"
-            isEnabled = false
-        }
-
-        speakButton.setOnClickListener {
-            speakChinese(lastTranslatedText)
-        }
         
         translateTextButton.setOnClickListener {
             val textToTranslate = inputEditText.text.toString()
             if (textToTranslate.isBlank()) return@setOnClickListener
 
-            resultTextView.text = "입력값: $textToTranslate\n\n번역 중..."
+            resultTextView.text = "번역 중..."
             translateTextButton.isEnabled = false
-            speakButton.isEnabled = false
 
             Thread {
                 try {
@@ -152,11 +146,11 @@ class MainActivity : AppCompatActivity() {
 
                     // 번역 결과에서 중국어 원문만 추출 (괄호 안 한글 발음 제거)
                     lastTranslatedText = extractChineseText(translatedText)
+                    currentTranslatedTextToCopy = translatedText
                     
                     runOnUiThread {
-                        resultTextView.text = "입력값: $textToTranslate\n\n번역값(중국어): $translatedText"
+                        resultTextView.text = translatedText
                         translateTextButton.isEnabled = true
-                        speakButton.isEnabled = lastTranslatedText != null
                     }
                 } catch (e: Exception) {
                     runOnUiThread {
@@ -220,12 +214,12 @@ class MainActivity : AppCompatActivity() {
 
                     // 번역 결과에서 중국어 원문만 추출
                     lastTranslatedText = extractChineseText(translatedText)
+                    currentTranslatedTextToCopy = translatedText
                     
                     runOnUiThread {
                         resultTextView.text = "STT (입력값): $sttResult\n\n번역값(중국어) 결과: $translatedText"
                         button.isEnabled = true
                         translateTextButton.isEnabled = true
-                        speakButton.isEnabled = lastTranslatedText != null
                     }
                     
                 } catch (e: OutOfMemoryError) {
@@ -245,12 +239,74 @@ class MainActivity : AppCompatActivity() {
                 }
             }.start()
         }
-        
-        layout.addView(inputEditText)
-        layout.addView(translateTextButton)
-        layout.addView(resultTextView)
-        layout.addView(speakButton)
-        layout.addView(testButton)
+        // ──── 중국어 → 한국어 번역 영역 ────
+        val chineseInputEditText = android.widget.EditText(this).apply {
+            hint = "中文输入 (중국어를 입력하세요)"
+            textSize = 16f
+            setPadding(0, 16, 0, 16)
+            // 중국어 키보드를 기본으로 표시하도록 IME 로케일 힌트 설정
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            privateImeOptions = "com.google.android.inputmethod.latin.noMicrophoneKey"
+        }
+        // 중국어 키보드 힌트 설정
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            chineseInputEditText.setImeHintLocales(android.os.LocaleList(Locale.SIMPLIFIED_CHINESE))
+        }
+
+        val translateToKoreanButton = Button(this).apply {
+            text = "🇨🇳→🇰🇷 중국어를 한국어로 번역"
+        }
+
+        translateToKoreanButton.setOnClickListener {
+            val chineseText = chineseInputEditText.text.toString()
+            if (chineseText.isBlank()) return@setOnClickListener
+
+            resultTextView.text = "한국어 번역 중..."
+            translateToKoreanButton.isEnabled = false
+
+            Thread {
+                try {
+                    val nllbModelDir = java.io.File(cacheDir, "onnx_nllb200")
+                    if (!translator!!.initTranslation(nllbModelDir.absolutePath)) {
+                        runOnUiThread {
+                            resultTextView.text = "❌ 번역 초기화 실패. 먼저 STT 버튼을 눌러주세요."
+                            translateToKoreanButton.isEnabled = true
+                        }
+                        return@Thread
+                    }
+
+                    val translatedText = translator!!.translateToKorean(chineseText)
+                    currentTranslatedTextToCopy = translatedText
+
+                    runOnUiThread {
+                        resultTextView.text = translatedText
+                        translateToKoreanButton.isEnabled = true
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        resultTextView.text = "❌ 번역 실패: ${e.message}"
+                        translateToKoreanButton.isEnabled = true
+                    }
+                }
+            }.start()
+        }
+
+        // 구분선
+        val divider = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 2
+            ).apply { setMargins(0, 24, 0, 24) }
+            setBackgroundColor(android.graphics.Color.GRAY)
+        }
+
+        // ──── Layout 배치 ────
+        layout.addView(inputEditText)           // 한국어 입력
+        layout.addView(translateTextButton)     // 한→중 번역 버튼
+        layout.addView(divider)                 // 구분선
+        layout.addView(chineseInputEditText)    // 중국어 입력
+        layout.addView(translateToKoreanButton) // 중→한 번역 버튼
+        layout.addView(resultTextView)          // 결과 표시
+        layout.addView(testButton)              // STT 테스트
         setContentView(layout)
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {

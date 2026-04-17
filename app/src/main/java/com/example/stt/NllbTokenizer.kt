@@ -285,6 +285,14 @@ class NllbTokenizer : AutoCloseable {
         return units
     }
 
+    /**
+     * 토큰 이름으로 ID를 조회합니다. (예: "kor_Hang" → 256088)
+     * 언어 토큰 ID를 동적으로 찾는 데 사용됩니다.
+     */
+    fun getTokenId(tokenName: String): Int? {
+        return tokenToId[tokenName]
+    }
+
     override fun close() {
         tokenToId.clear()
         idToToken.clear()

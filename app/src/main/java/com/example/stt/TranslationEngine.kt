@@ -17,6 +17,7 @@ class TranslationEngine {
     private val eosTokenId: Long = 2
     private val padTokenId: Long = 1
     private val zhoHansTokenId: Long = 256200 // zho_Hans (중국어 간체) 타겟 언어 ID
+    private var korHangTokenId: Long = 256088  // kor_Hang (한국어) 타겟 언어 ID (기본값, 토크나이저에서 동적 조회)
     
     private var isInitialized = false
 
@@ -56,6 +57,15 @@ class TranslationEngine {
             Log.d("TranslationEngine", "Decoder 세션 로딩 중...")
             decoderSession = env?.createSession(decoderPath, sessionOptions)
             
+            // 토크나이저에서 한국어 언어 토큰 ID를 동적으로 조회
+            val korId = tokenizer?.getTokenId("kor_Hang")
+            if (korId != null) {
+                korHangTokenId = korId.toLong()
+                Log.d("TranslationEngine", "kor_Hang 토큰 ID: $korHangTokenId")
+            } else {
+                Log.w("TranslationEngine", "kor_Hang 토큰을 찾을 수 없어 기본값($korHangTokenId) 사용")
+            }
+
             isInitialized = true
             Log.d("TranslationEngine", "ONNX 온디바이스 세션 로드 성공!")
             return true
@@ -65,26 +75,51 @@ class TranslationEngine {
         }
     }
 
+    /**
+     * 한국어 → 중국어 번역 (기존 기능)
+     */
     fun translate(text: String): String {
+        val rawResult = translateInternal(text, korHangTokenId, zhoHansTokenId)
+        // 중국어일 경우 한글 발음 기호 괄호 추가
+        return appendKoreanPronunciation(rawResult)
+    }
+
+    /**
+     * 중국어 → 한국어 번역
+     */
+    fun translateToKorean(text: String): String {
+        return translateInternal(text, zhoHansTokenId, korHangTokenId)
+    }
+
+    /**
+     * 내부 공통 번역 로직
+     * @param text 입력 텍스트
+     * @param srcLangTokenId 소스 언어 토큰 ID
+     * @param targetLangTokenId 타겟 언어 토큰 ID
+     */
+    private fun translateInternal(text: String, srcLangTokenId: Long, targetLangTokenId: Long): String {
         val currentEnv = env ?: return "Translator not initialized"
         val encSession = encoderSession ?: return "Encoder not initialized"
         val decSession = decoderSession ?: return "Decoder not initialized"
         val tok = tokenizer ?: return "Tokenizer not initialized"
 
         try {
-            Log.d("TranslationEngine", "토큰화 시작: '$text'")
+            Log.d("TranslationEngine", "토큰화 시작: '$text' (target=$targetLangTokenId)")
             
             // BPE 토크나이저로 인코딩
             val inputIdsIntArray = tok.encode(text)
             Log.d("TranslationEngine", "토큰화 결과: ${inputIdsIntArray.size}개 토큰")
             
-            // NLLB-200 입력 형식: text_tokens + </s> (eos)
-            val seqLen = inputIdsIntArray.size + 1 // +1 for EOS
+            // NLLB-200 구버전(Legacy) 입력 형식: text_tokens + [eos] + [src_lang_code]
+            // HuggingFace NLLB 모델이 ONNX로 변환될 때 주로 사용된 포맷입니다.
+            val seqLen = inputIdsIntArray.size + 2 // +1 for EOS, +1 for src_lang_code
             val inputIdsArray = LongArray(seqLen)
+            
             for (i in inputIdsIntArray.indices) {
                 inputIdsArray[i] = inputIdsIntArray[i].toLong()
             }
-            inputIdsArray[seqLen - 1] = eosTokenId // EOS 토큰 추가
+            inputIdsArray[seqLen - 2] = eosTokenId // 마지막 직전에 EOS 토큰 추가
+            inputIdsArray[seqLen - 1] = srcLangTokenId // 맨 마지막에 소스 언어 토큰 추가
             
             val attentionMaskArray = LongArray(seqLen) { 1L }
 
@@ -103,7 +138,7 @@ class TranslationEngine {
             // 디코더 탐욕 탐색(Greedy Search) 루프
             Log.d("TranslationEngine", "디코더 Greedy Search 루프 시작...")
             // NLLB-200 디코더 시작: </s> + tgt_lang_token
-            val generatedTokens = mutableListOf<Long>(eosTokenId, zhoHansTokenId)
+            val generatedTokens = mutableListOf<Long>(eosTokenId, targetLangTokenId)
             
             val maxLen = 60
             for (step in 0 until maxLen) {
@@ -126,12 +161,25 @@ class TranslationEngine {
                 var maxLogit = Float.NEGATIVE_INFINITY
                 var maxIdx = 0L
                 
+                val repetitionPenalty = 1.5f
                 val offset = (decSeqLen.toInt() - 1) * vocabSize
+                
                 for (i in 0 until vocabSize) {
-                    val logit = floatBuffer.get(offset + i)
+                    var logit = floatBuffer.get(offset + i)
+                    val tokenId = i.toLong()
+                    
+                    // Repetition Penalty 적용 (특수 토큰 0~3은 제외하여 모델이 정상적으로 문장을 끝내도록 캄)
+                    if (tokenId > 3L && generatedTokens.contains(tokenId)) {
+                        if (logit < 0) {
+                            logit *= repetitionPenalty
+                        } else {
+                            logit /= repetitionPenalty
+                        }
+                    }
+                    
                     if (logit > maxLogit) {
                         maxLogit = logit
-                        maxIdx = i.toLong()
+                        maxIdx = tokenId
                     }
                 }
                 
@@ -155,10 +203,7 @@ class TranslationEngine {
             val rawResult = tok.decode(resultIds)
             Log.d("TranslationEngine", "번역 결과: '$rawResult'")
             
-            // 중국어일 경우 한글 발음 기호 괄호 추가
-            val resultWithPronunciation = appendKoreanPronunciation(rawResult)
-            
-            return resultWithPronunciation
+            return rawResult
 
         } catch (e: Exception) {
             Log.e("TranslationEngine", "번역 추론 에러 발생", e)
